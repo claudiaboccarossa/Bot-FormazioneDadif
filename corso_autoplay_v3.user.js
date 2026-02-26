@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Corso Auto-Avanzamento Lezioni v3
+// @name         Corso Auto-Avanzamento Lezioni v3.1
 // @namespace    http://tampermonkey.net/
-// @version      3.0
+// @version      3.1
 // @description  Avanza automaticamente alla lezione successiva su formazione.dadif.com
 // @author       Bot Automatico
 // @match        *://formazione.dadif.com/*
@@ -28,7 +28,7 @@
             border:1px solid #10b981; min-width:300px; line-height:1.6;
         `;
         panel.innerHTML = `
-            <div style="color:#10b981;font-weight:bold;margin-bottom:6px;font-size:14px;">🤖 Auto-Lezione BOT v3</div>
+            <div style="color:#10b981;font-weight:bold;margin-bottom:6px;font-size:14px;">🤖 Auto-Lezione BOT v3.1</div>
             <div id="al-status">⏳ Avvio...</div>
             <div id="al-info" style="color:#9ca3af;font-size:11px;margin-top:3px;"></div>
             <div style="margin-top:10px;display:flex;gap:8px;">
@@ -53,21 +53,24 @@
 
     // ── Logica principale ──────────────────────────────────────────────────────
 
-    // Restituisce tutte le <li> lezione visibili
     function getLessons() {
         return Array.from(document.querySelectorAll('li.list-group-item[onclick]'))
             .filter(li => li.style.display !== 'none');
     }
 
-    // Trova la lezione corrente = la prima con progresso < 100
-    // (tutte quelle prima sono completate, questa è quella in corso)
+    // Trova la lezione corrente = quella subito dopo l'ultima al 100%
+    // CORRETTO: evita di saltare lezioni a 0% quando la piattaforma ne sblocca due insieme
     function findCurrentLesson(lessons) {
-        for (const li of lessons) {
+        let lastCompletedIdx = -1;
+        lessons.forEach((li, i) => {
             const bar = li.querySelector('.progress-bar[aria-valuenow]');
-            if (bar) {
-                const val = parseInt(bar.getAttribute('aria-valuenow'));
-                if (val < 100) return li;
+            if (bar && parseInt(bar.getAttribute('aria-valuenow')) === 100) {
+                lastCompletedIdx = i;
             }
+        });
+        // La lezione corrente è quella immediatamente successiva all'ultima completata
+        if (lastCompletedIdx < lessons.length - 1) {
+            return lessons[lastCompletedIdx + 1];
         }
         return null; // tutte al 100% → corso finito
     }
@@ -91,8 +94,7 @@
         const currentTitle = current.textContent.trim().replace(/\s+/g, ' ').slice(0, 60);
         setInfo(`Attuale (idx ${idx}): ${currentTitle}`);
 
-        // La lezione corrente è quella con progresso < 100.
-        // Quando arriviamo al 100%, dobbiamo cliccare la PROSSIMA (idx+1)
+        // Quando la lezione corrente è al 100%, clicchiamo quella dopo
         if (idx < lessons.length - 1) {
             const next = lessons[idx + 1];
             const nextTitle = next.textContent.trim().replace(/\s+/g, ' ').slice(0, 60);
@@ -124,14 +126,13 @@
 
             if (isCurrentLessonComplete()) {
                 setStatus('✅ 100%! Passo alla prossima...');
-                await sleep(2500); // piccola pausa naturale
+                await sleep(2500);
                 const clicked = clickNextLesson();
                 if (clicked) {
                     lastClickTime = Date.now();
                     setStatus('➡️ Click! Attendo caricamento nuova lezione...');
                 }
             } else {
-                // Mostra il progresso attuale
                 const lessons = getLessons();
                 const current = findCurrentLesson(lessons);
                 if (current) {
@@ -154,7 +155,7 @@
         if (!document.getElementById('al-panel')) {
             createPanel();
             mainLoop();
-            console.log('[AutoLezione] Bot v3 avviato.');
+            console.log('[AutoLezione] Bot v3.1 avviato.');
         }
     }
 
