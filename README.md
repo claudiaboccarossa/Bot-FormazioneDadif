@@ -57,6 +57,17 @@ Il bot identifica la lezione corrente cercando la prima voce nel menu laterale c
 - Se il corso viene aggiornato dalla piattaforma e la struttura HTML cambia, lo script potrebbe smettere di funzionare
 
 ---
+✅ Puoi fare:
+
+Aprire altre schede e navigare su altri siti
+Usare altre applicazioni sul PC
+
+⚠️ Non devi:
+
+Chiudere o ricaricare la scheda del corso — il bot vive in quella scheda e si azzera
+Mettere in sleep/ibernazione il PC — lo script si ferma
+
+---
 
 ## 🗂️ File inclusi
 
@@ -64,13 +75,3 @@ Il bot identifica la lezione corrente cercando la prima voce nel menu laterale c
 |------|-------------|
 | `corso_autoplay_v3.user.js` | Script principale da installare in Tampermonkey |
 | `README.md` | Questo file |
-
----
-
-## 📝 Versioni
-
-| Versione | Novità |
-|----------|--------|
-| v1.0 | Prima versione, selettori generici |
-| v2.0 | Selettori specifici per dadif.com |
-| v3.0 | Logica basata su `aria-valuenow`, nessuna dipendenza da classi attive |
