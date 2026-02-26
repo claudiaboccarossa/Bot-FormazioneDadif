@@ -75,13 +75,3 @@ Mettere in sleep/ibernazione il PC — lo script si ferma
 |------|-------------|
 | `corso_autoplay_v3.user.js` | Script principale da installare in Tampermonkey |
 | `README.md` | Questo file |
-
----
-
-## 📝 Versioni
-
-| Versione | Novità |
-|----------|--------|
-| v1.0 | Prima versione, selettori generici |
-| v2.0 | Selettori specifici per dadif.com |
-| v3.0 | Logica basata su `aria-valuenow`, nessuna dipendenza da classi attive |
