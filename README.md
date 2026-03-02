@@ -75,3 +75,13 @@ Mettere in sleep/ibernazione il PC — lo script si ferma
 |------|-------------|
 | `corso_autoplay_v3.user.js` | Script principale da installare in Tampermonkey |
 | `README.md` | Questo file |
+
+---
+
+## 📝 Changelog
+
+### v3.1 → v3.2 (fix)
+- **Fix:** il bot ora identifica correttamente la **prima lezione non completata** nella lista, invece di saltare alla lezione successiva all'ultima al 100%. Questo risolveva un bug per cui, quando la piattaforma sblocca più lezioni contemporaneamente o le lezioni non sono in ordine sequenziale di completamento, il bot saltava lezioni ancora da fare.
+- **Fix:** eliminato un ulteriore salto di una lezione nella funzione di navigazione (`clickNextLesson`).
+
+> ⚠️ **Aggiorna lo script in Tampermonkey** copiando il contenuto aggiornato di `corso_autoplay_v3.user.js`.
