@@ -58,21 +58,12 @@
             .filter(li => li.style.display !== 'none');
     }
 
-    // Trova la lezione corrente = quella subito dopo l'ultima al 100%
-    // CORRETTO: evita di saltare lezioni a 0% quando la piattaforma ne sblocca due insieme
+    // Trova la prima lezione non ancora al 100%
     function findCurrentLesson(lessons) {
-        let lastCompletedIdx = -1;
-        lessons.forEach((li, i) => {
+        return lessons.find(li => {
             const bar = li.querySelector('.progress-bar[aria-valuenow]');
-            if (bar && parseInt(bar.getAttribute('aria-valuenow')) === 100) {
-                lastCompletedIdx = i;
-            }
-        });
-        // La lezione corrente è quella immediatamente successiva all'ultima completata
-        if (lastCompletedIdx < lessons.length - 1) {
-            return lessons[lastCompletedIdx + 1];
-        }
-        return null; // tutte al 100% → corso finito
+            return !bar || parseInt(bar.getAttribute('aria-valuenow')) < 100;
+        }) || null;
     }
 
     // Controlla se la lezione corrente è al 100% (nel pannello "Sei al 100%")
@@ -80,32 +71,21 @@
         return /sei al\s*100\s*%/i.test(document.body.innerText);
     }
 
-    // Clicca la lezione successiva rispetto a quella corrente
+    // Clicca la prossima lezione da fare (prima non al 100%)
     function clickNextLesson() {
         const lessons = getLessons();
-        const current = findCurrentLesson(lessons);
+        const next = findCurrentLesson(lessons);
 
-        if (!current) {
+        if (!next) {
             setStatus('🏁 Tutte le lezioni completate!');
             return false;
         }
 
-        const idx = lessons.indexOf(current);
-        const currentTitle = current.textContent.trim().replace(/\s+/g, ' ').slice(0, 60);
-        setInfo(`Attuale (idx ${idx}): ${currentTitle}`);
-
-        // Quando la lezione corrente è al 100%, clicchiamo quella dopo
-        if (idx < lessons.length - 1) {
-            const next = lessons[idx + 1];
-            const nextTitle = next.textContent.trim().replace(/\s+/g, ' ').slice(0, 60);
-            console.log('[AutoLezione] Click su:', nextTitle);
-            next.click();
-            setInfo(`→ Click su: ${nextTitle}`);
-            return true;
-        } else {
-            setStatus('🏁 Ultima lezione del corso completata!');
-            return false;
-        }
+        const title = next.textContent.trim().replace(/\s+/g, ' ').slice(0, 60);
+        console.log('[AutoLezione] Click su:', title);
+        next.click();
+        setInfo(`→ Click su: ${title}`);
+        return true;
     }
 
     // ── Loop ───────────────────────────────────────────────────────────────────
