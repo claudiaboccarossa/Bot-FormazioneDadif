@@ -1,7 +1,7 @@
 # 🤖 Auto-Lezione BOT — formazione.dadif.com
 
 Uno script per avanzare automaticamente tra le lezioni del corso su **formazione.dadif.com**, senza dover cliccare manualmente ogni volta.
-
+(Crediti idea a L.Carucci)
 ---
 
 ## 📋 Requisiti
