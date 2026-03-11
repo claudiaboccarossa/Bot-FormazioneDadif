@@ -30,10 +30,11 @@ Vai sul Chrome Web Store e cerca **Tampermonkey**, poi clicca *Aggiungi a Chrome
 
 1. Vai su [formazione.dadif.com](https://formazione.dadif.com) e apri il corso
 2. Lo script si avvia automaticamente — comparirà un **pannello verde** in basso a sinistra
-3. Il bot controlla ogni 8 secondi il progresso della lezione corrente
-4. Quando rileva **"Sei al 100%"**, clicca automaticamente la lezione successiva
-5. Ripete il ciclo fino al completamento del corso
-6. **90 secondi prima della scadenza della sessione**, ri-clicca automaticamente la lezione corrente per evitare interruzioni
+3. Il bot clicca automaticamente la lezione corrente e avvia il video
+4. Controlla ogni 8 secondi il progresso della lezione
+5. Quando rileva **"Sei al 100%"**, clicca automaticamente la lezione successiva e avvia il video
+6. Ripete il ciclo fino al completamento del corso
+7. **90 secondi prima della scadenza della sessione**, ricarica la pagina, chiude il popup, ri-clicca la lezione e avvia il video
 
 ### Pannello di controllo
 
@@ -47,9 +48,9 @@ Vai sul Chrome Web Store e cerca **Tampermonkey**, poi clicca *Aggiungi a Chrome
 
 ## 🧠 Come funziona internamente
 
-Il bot identifica la lezione corrente cercando la prima voce nel menu laterale con una **progress bar inferiore al 100%** (tramite l'attributo `aria-valuenow`). Quando la pagina mostra "Sei al 100%", clicca la voce successiva nella lista e poi attende 20 secondi per dare tempo alla pagina di caricarsi prima di riprendere i controlli.
+Il bot identifica la lezione corrente cercando la prima voce nel menu laterale con una **progress bar inferiore al 100%** (tramite l'attributo `aria-valuenow`). All'avvio, se non c'è ancora nessun video caricato, clicca subito la lezione per aprirla e poi avvia il video. Quando la pagina mostra "Sei al 100%", clicca la voce successiva nella lista, attende 4 secondi che il video carichi e clicca play. Poi attende 20 secondi prima di riprendere i controlli.
 
-**Gestione scadenza sessione:** la piattaforma mostra in alto a destra il testo *"Questa Sessione Studio scadrà alle HH:MM"*. Il bot legge quell'orario ad ogni ciclo, lo mostra nel pannello come countdown e, 90 secondi prima della scadenza, ri-clicca automaticamente la lezione corrente per mantenere la sessione attiva. Il valore `SESSION_WARN_BEFORE` (riga 17 dello script) può essere modificato per anticipare o ritardare l'intervento.
+**Gestione scadenza sessione:** la piattaforma mostra in alto a destra il testo *"Questa Sessione Studio scadrà alle HH:MM"*. Il bot legge quell'orario ad ogni ciclo, lo mostra nel pannello come countdown e, 90 secondi prima della scadenza, **ricarica la pagina** per rinnovare la sessione. Al riavvio, chiude automaticamente il popup "Messaggio Sessione Studio", clicca la lezione corrente e avvia il video. Il valore `SESSION_WARN_BEFORE` (riga 17 dello script) può essere modificato per anticipare o ritardare l'intervento.
 
 ---
 
@@ -85,9 +86,13 @@ Mettere in sleep/ibernazione il PC — lo script si ferma
 ## 📝 Changelog
 
 ### v3.2 → v3.3
+- **Nuovo:** click automatico sulla lezione all'avvio (non serve più aprire manualmente la lezione)
+- **Nuovo:** click automatico sul play del video dopo ogni cambio lezione e all'avvio
 - **Nuovo:** rilevamento automatico della scadenza della sessione dal testo *"scadrà alle HH:MM"* in pagina
 - **Nuovo:** countdown alla scadenza visualizzato nel pannello (in arancione)
-- **Nuovo:** ri-click automatico della lezione corrente 90 secondi prima della scadenza, per evitare interruzioni senza intervento manuale
+- **Nuovo:** 90 secondi prima della scadenza, ricarica automatica della pagina per rinnovare la sessione
+- **Nuovo:** chiusura automatica del popup "Messaggio Sessione Studio" ad ogni caricamento della pagina
+- **Fix:** dopo il reload da scadenza sessione, il bot ri-clicca la lezione e avvia il video senza intervento manuale
 
 ### v3.1 → v3.2 (fix)
 - **Fix:** il bot ora identifica correttamente la **prima lezione non completata** nella lista, invece di saltare alla lezione successiva all'ultima al 100%. Questo risolveva un bug per cui, quando la piattaforma sblocca più lezioni contemporaneamente o le lezioni non sono in ordine sequenziale di completamento, il bot saltava lezioni ancora da fare.

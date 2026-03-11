@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Corso Auto-Avanzamento Lezioni v3.2
 // @namespace    http://tampermonkey.net/
-// @version      3.2
-// @description  Avanza automaticamente alla lezione successiva su formazione.dadif.com, con gestione scadenza sessione
+// @version      3.3
+// @description  Avanza automaticamente alla lezione successiva su formazione.dadif.com, con gestione scadenza sessione e click video
 // @author       Bot Automatico
 // @match        *://formazione.dadif.com/*
 // @grant        none
@@ -29,7 +29,7 @@
             border:1px solid #10b981; min-width:300px; line-height:1.6;
         `;
         panel.innerHTML = `
-            <div style="color:#10b981;font-weight:bold;margin-bottom:6px;font-size:14px;">🤖 Auto-Lezione BOT v3.2</div>
+            <div style="color:#10b981;font-weight:bold;margin-bottom:6px;font-size:14px;">🤖 Auto-Lezione BOT v3.3</div>
             <div id="al-status">⏳ Avvio...</div>
             <div id="al-info" style="color:#9ca3af;font-size:11px;margin-top:3px;"></div>
             <div id="al-session" style="color:#f59e0b;font-size:11px;margin-top:3px;"></div>
@@ -98,15 +98,83 @@
         // Ri-clicca la lezione corrente SESSION_WARN_BEFORE secondi prima della scadenza
         if (secs <= SESSION_WARN_BEFORE && !sessionReclickDone && running) {
             sessionReclickDone = true;
-            setStatus('🔄 Rinnovo sessione: ri-click lezione...');
-            clickNextLesson();
-            lastClickTime = Date.now();
+            setStatus('🔄 Rinnovo sessione: ricarico pagina...');
+            sessionStorage.setItem('al-session-reload', '1');
+            setTimeout(() => location.reload(), 1500);
         }
 
         // Reset del flag quando siamo di nuovo lontani dalla scadenza (nuova sessione)
         if (secs > SESSION_WARN_BEFORE + 60) {
             sessionReclickDone = false;
         }
+    }
+
+    // ── Chiusura popup "Messaggio Sessione Studio" ─────────────────────────────
+
+    function tryCloseSessionPopup() {
+        // Cerca un modale Bootstrap visibile (.modal.show o display:block)
+        const modal = document.querySelector('.modal.show, .modal[style*="display: block"], .modal[style*="display:block"]');
+        if (!modal) return false;
+
+        const closeBtn = Array.from(modal.querySelectorAll('button'))
+            .find(b => /chiudi/i.test(b.textContent.trim()));
+        if (closeBtn) {
+            closeBtn.click();
+            console.log('[AutoLezione] Popup sessione chiuso');
+            return true;
+        }
+        return false;
+    }
+
+    // Prova a chiudere il popup a 500ms, 1s, 2s, 4s dal caricamento
+    function schedulePopupClose() {
+        [500, 1000, 2000, 4000].forEach(delay => setTimeout(tryCloseSessionPopup, delay));
+    }
+
+    // ── Click video ────────────────────────────────────────────────────────────
+
+    // Clicca il tasto play del video se è in pausa/non avviato
+    function clickVideoPlay() {
+        const video = document.querySelector('video');
+
+        // 1. Se il video è già in riproduzione, non fare nulla
+        if (video && !video.paused) return false;
+
+        // 2. Tenta .play() via API
+        if (video && video.readyState >= 1) {
+            video.play().then(() => {
+                setStatus('▶️ Video avviato via API');
+            }).catch(() => {
+                // autoplay bloccato: click diretto sull'elemento video
+                video.click();
+                setStatus('▶️ Click diretto su video');
+            });
+            return true;
+        }
+
+        // 3. VideoJS
+        const vjsBtn = document.querySelector('.vjs-big-play-button');
+        if (vjsBtn && window.getComputedStyle(vjsBtn).display !== 'none') {
+            vjsBtn.click();
+            setStatus('▶️ Click play VJS');
+            return true;
+        }
+
+        // 4. Overlay / wrapper cliccabile attorno al video
+        if (video) {
+            const wrapper = video.closest('[onclick], [class*="player"], [class*="video-wrap"]');
+            if (wrapper) {
+                wrapper.click();
+                setStatus('▶️ Click wrapper video');
+                return true;
+            }
+            // click diretto sull'elemento anche senza readyState sufficiente
+            video.click();
+            setStatus('▶️ Click video (fallback)');
+            return true;
+        }
+
+        return false;
     }
 
     // ── Logica principale ──────────────────────────────────────────────────────
@@ -172,6 +240,8 @@
                 if (clicked) {
                     lastClickTime = Date.now();
                     setStatus('➡️ Click! Attendo caricamento nuova lezione...');
+                    await sleep(4000); // aspetta che la pagina carichi il video
+                    clickVideoPlay();
                 }
             } else {
                 const lessons = getLessons();
@@ -180,8 +250,24 @@
                     const bar = current.querySelector('.progress-bar[aria-valuenow]');
                     const pct = bar ? bar.getAttribute('aria-valuenow') : '?';
                     const title = current.textContent.trim().replace(/\s+/g, ' ').slice(0, 40);
-                    setStatus(`⏳ In corso: ${pct}%`);
-                    setInfo(title);
+                    const video = document.querySelector('video');
+
+                    if (!video && lastClickTime === 0) {
+                        // Nessun video caricato e nessun click ancora: clicca la lezione per avviarla
+                        setStatus('🎯 Click lezione iniziale...');
+                        const clicked = clickNextLesson();
+                        if (clicked) {
+                            lastClickTime = Date.now();
+                            await sleep(4000);
+                            clickVideoPlay();
+                        }
+                    } else if (video && video.paused) {
+                        // Video caricato ma in pausa: clicca play
+                        clickVideoPlay();
+                    } else {
+                        setStatus(`⏳ In corso: ${pct}%`);
+                        setInfo(title);
+                    }
                 } else {
                     setStatus('🔍 Ricerca lezione in corso...');
                 }
@@ -192,11 +278,29 @@
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     // ── Avvio ─────────────────────────────────────────────────────────────────
+
+    // Avvia i tentativi di chiusura popup subito, senza aspettare init
+    schedulePopupClose();
+
     function init() {
         if (!document.getElementById('al-panel')) {
             createPanel();
             mainLoop();
-            console.log('[AutoLezione] Bot v3.2 avviato.');
+            console.log('[AutoLezione] Bot v3.3 avviato.');
+
+            // Se il reload era per rinnovare la sessione, clicca subito la lezione e il video
+            if (sessionStorage.getItem('al-session-reload') === '1') {
+                sessionStorage.removeItem('al-session-reload');
+                setStatus('🔄 Pagina ricaricata, click lezione...');
+                setTimeout(async () => {
+                    const clicked = clickNextLesson();
+                    if (clicked) {
+                        lastClickTime = Date.now();
+                        await sleep(4000);
+                        clickVideoPlay();
+                    }
+                }, 3000);
+            }
         }
     }
 
