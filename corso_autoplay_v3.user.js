@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Corso Auto-Avanzamento Lezioni v3.1
+// @name         Corso Auto-Avanzamento Lezioni v3.2
 // @namespace    http://tampermonkey.net/
-// @version      3.1
-// @description  Avanza automaticamente alla lezione successiva su formazione.dadif.com
+// @version      3.2
+// @description  Avanza automaticamente alla lezione successiva su formazione.dadif.com, con gestione scadenza sessione
 // @author       Bot Automatico
 // @match        *://formazione.dadif.com/*
 // @grant        none
@@ -12,8 +12,9 @@
 (function () {
     'use strict';
 
-    const CHECK_INTERVAL_MS = 8000;  // controlla ogni 8 secondi
-    const POST_CLICK_WAIT   = 20000; // dopo il click aspetta 20s prima di ricontrollare
+    const CHECK_INTERVAL_MS    = 8000;  // controlla ogni 8 secondi
+    const POST_CLICK_WAIT      = 20000; // dopo il click aspetta 20s prima di ricontrollare
+    const SESSION_WARN_BEFORE  = 90;    // secondi prima della scadenza: ri-clicca la lezione
 
     // ── Pannello UI ────────────────────────────────────────────────────────────
     function createPanel() {
@@ -28,9 +29,10 @@
             border:1px solid #10b981; min-width:300px; line-height:1.6;
         `;
         panel.innerHTML = `
-            <div style="color:#10b981;font-weight:bold;margin-bottom:6px;font-size:14px;">🤖 Auto-Lezione BOT v3.1</div>
+            <div style="color:#10b981;font-weight:bold;margin-bottom:6px;font-size:14px;">🤖 Auto-Lezione BOT v3.2</div>
             <div id="al-status">⏳ Avvio...</div>
             <div id="al-info" style="color:#9ca3af;font-size:11px;margin-top:3px;"></div>
+            <div id="al-session" style="color:#f59e0b;font-size:11px;margin-top:3px;"></div>
             <div style="margin-top:10px;display:flex;gap:8px;">
                 <button id="al-stop"  style="background:#ef4444;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;">⏹ Stop</button>
                 <button id="al-start" style="background:#10b981;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;">▶ Start</button>
@@ -49,6 +51,62 @@
     function setInfo(msg) {
         const el = document.getElementById('al-info');
         if (el) el.textContent = msg;
+    }
+    function setSession(msg) {
+        const el = document.getElementById('al-session');
+        if (el) el.textContent = msg;
+    }
+
+    // ── Gestione scadenza sessione ──────────────────────────────────────────────
+
+    // Cerca nel DOM il testo "scadrà alle HH:MM" e restituisce i secondi mancanti.
+    // Ritorna null se non trovato.
+    function getSessionSecondsLeft() {
+        const match = document.body.innerText.match(/scadr[àa]\s+alle\s+(\d{1,2}):(\d{2})/i);
+        if (!match) return null;
+
+        const now = new Date();
+        const expiry = new Date();
+        expiry.setHours(parseInt(match[1], 10), parseInt(match[2], 10), 0, 0);
+
+        // Se l'orario è già passato rispetto a ora, la scadenza è domani
+        if (expiry <= now) expiry.setDate(expiry.getDate() + 1);
+
+        return Math.floor((expiry - now) / 1000);
+    }
+
+    let sessionReclickDone = false; // evita click multipli per la stessa scadenza
+
+    function checkSessionExpiry() {
+        const secs = getSessionSecondsLeft();
+        if (secs === null) {
+            setSession('');
+            return;
+        }
+
+        const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+        const ss = String(secs % 60).padStart(2, '0');
+
+        if (secs <= 0) {
+            setSession('⚠️ Sessione scaduta!');
+            sessionReclickDone = false; // reset per la prossima sessione
+            return;
+        }
+
+        setSession(`⏱ Sessione scade in: ${mm}:${ss}`);
+
+        // Ri-clicca la lezione corrente SESSION_WARN_BEFORE secondi prima della scadenza
+        if (secs <= SESSION_WARN_BEFORE && !sessionReclickDone && running) {
+            sessionReclickDone = true;
+            setStatus('🔄 Rinnovo sessione: ri-click lezione...');
+            clickNextLesson();
+            lastClickTime = Date.now();
+        }
+
+        // Reset del flag quando siamo di nuovo lontani dalla scadenza (nuova sessione)
+        if (secs > SESSION_WARN_BEFORE + 60) {
+            sessionReclickDone = false;
+        }
     }
 
     // ── Logica principale ──────────────────────────────────────────────────────
@@ -95,6 +153,9 @@
     async function mainLoop() {
         while (true) {
             await sleep(CHECK_INTERVAL_MS);
+
+            checkSessionExpiry(); // aggiorna countdown e ri-clicca se necessario
+
             if (!running) continue;
 
             const now = Date.now();
@@ -135,7 +196,7 @@
         if (!document.getElementById('al-panel')) {
             createPanel();
             mainLoop();
-            console.log('[AutoLezione] Bot v3.1 avviato.');
+            console.log('[AutoLezione] Bot v3.2 avviato.');
         }
     }
 
